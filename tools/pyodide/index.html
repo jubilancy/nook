@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pyodide — wasm.eliana.lol</title>
+  <link rel="stylesheet" href="../../style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container inner">
+    <a class="wordmark" href="../../">wasm<span>.</span>eliana<span>.</span>lol</a>
+    <nav>
+      <a href="../sql-js/">sql.js</a>
+      <a href="../quickjs/">quickjs</a>
+      <a href="../photon/">photon</a>
+      <a href="../ffmpeg/">ffmpeg</a>
+      <a href="../voy/">voy</a>
+      <a href="../perspective/">perspective</a>
+      <a href="../dotlottie/">dotlottie</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="tool-hero">
+      <span class="tag">language runtime</span>
+      <h1>Pyodide</h1>
+      <p class="desc">Python 3.12 compiled to WebAssembly. Run real Python — including numpy, pandas, and matplotlib — directly in the browser.</p>
+      <div class="meta">
+        <a href="https://github.com/pyodide/pyodide" target="_blank" rel="noopener">github ↗</a>
+        <span>cdn: pyodide-cdn</span>
+        <span>~10 MB runtime</span>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="dot"></div>
+      <span id="status">loading pyodide... (this takes a moment)</span>
+    </div>
+
+    <div class="section">
+      <div class="section-label">code</div>
+      <div class="demo-area">
+        <label>python</label>
+        <textarea id="code" rows="12">import sys
+
+# basic python
+nums = [1, 4, 9, 16, 25]
+roots = [n ** 0.5 for n in nums]
+print(f"python {sys.version.split()[0]}")
+print(f"squares: {nums}")
+print(f"roots:   {[round(r, 3) for r in roots]}")
+
+# dict comprehension
+freq = {c: "hello world".count(c) for c in set("hello world") if c != " "}
+print(f"char freq: {dict(sorted(freq.items()))}")</textarea>
+      </div>
+      <div class="mt-2">
+        <button class="btn" id="run" disabled>run python</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">output</div>
+      <div class="output empty" id="output">// output will appear here</div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container flex gap-2 wrap items-center" style="justify-content:space-between">
+    <a href="../../">← all tools</a>
+    <a href="https://pyodide.org" target="_blank" rel="noopener">pyodide.org</a>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+<script>
+  const dot    = document.getElementById('dot');
+  const status = document.getElementById('status');
+  const output = document.getElementById('output');
+  const runBtn = document.getElementById('run');
+  let pyodide;
+
+  function setStatus(state, msg) {
+    dot.className = 'status-dot ' + state;
+    status.textContent = msg;
+  }
+
+  async function main() {
+    try {
+      pyodide = await loadPyodide();
+      setStatus('ready', 'python 3.12 ready');
+      runBtn.disabled = false;
+    } catch (e) {
+      setStatus('error', 'failed to load: ' + e.message);
+    }
+  }
+  main();
+
+  runBtn.addEventListener('click', async () => {
+    const code = document.getElementById('code').value;
+    output.className = 'output';
+    output.textContent = '...';
+    let captured = [];
+    pyodide.setStdout({ batched: s => captured.push(s) });
+    pyodide.setStderr({ batched: s => captured.push('stderr: ' + s) });
+    try {
+      await pyodide.runPythonAsync(code);
+      output.textContent = captured.join('\n') || '// no output';
+      output.className = 'output success';
+    } catch (e) {
+      output.textContent = e.message;
+      output.className = 'output error';
+    }
+  });
+</script>
+</body>
+</html>

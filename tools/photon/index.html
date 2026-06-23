@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Photon — wasm.eliana.lol</title>
+  <link rel="stylesheet" href="../../style.css" />
+  <style>
+    .canvas-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    .canvas-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--bg-raised);
+    }
+    .canvas-wrap p {
+      font-size: var(--size-xs);
+      color: var(--dim);
+      font-style: italic;
+      padding: 0.4rem 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    canvas { display: block; width: 100%; height: auto; }
+    @media (max-width: 500px) { .canvas-row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container inner">
+    <a class="wordmark" href="../../">wasm<span>.</span>eliana<span>.</span>lol</a>
+    <nav>
+      <a href="../sql-js/">sql.js</a>
+      <a href="../pyodide/">pyodide</a>
+      <a href="../quickjs/">quickjs</a>
+      <a href="../ffmpeg/">ffmpeg</a>
+      <a href="../voy/">voy</a>
+      <a href="../perspective/">perspective</a>
+      <a href="../dotlottie/">dotlottie</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="tool-hero">
+      <span class="tag">image processing</span>
+      <h1>Photon</h1>
+      <p class="desc">100+ image filters and transforms compiled to WASM. 4–10× faster than equivalent JavaScript on mobile.</p>
+      <div class="meta">
+        <a href="https://github.com/silvia-odwyer/photon" target="_blank" rel="noopener">github ↗</a>
+        <span>cdn: unpkg</span>
+        <span>~200 KB wasm</span>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="dot"></div>
+      <span id="status">loading photon...</span>
+    </div>
+
+    <div class="section">
+      <div class="section-label">image</div>
+      <div class="demo-area">
+        <label>upload an image</label>
+        <input type="file" id="file" accept="image/*" disabled />
+      </div>
+
+      <div class="mt-2 demo-area">
+        <label>filter</label>
+        <select id="filter" disabled>
+          <option value="grayscale">grayscale</option>
+          <option value="sepia">sepia</option>
+          <option value="invert">invert</option>
+          <option value="sharpen">sharpen</option>
+          <option value="solarize">solarize</option>
+          <option value="emboss">emboss</option>
+          <option value="inc_brightness">increase brightness</option>
+          <option value="inc_contrast">increase contrast</option>
+        </select>
+      </div>
+
+      <div class="mt-2">
+        <button class="btn" id="apply" disabled>apply filter</button>
+      </div>
+    </div>
+
+    <div class="canvas-row">
+      <div class="canvas-wrap">
+        <canvas id="original"></canvas>
+        <p>original</p>
+      </div>
+      <div class="canvas-wrap">
+        <canvas id="processed"></canvas>
+        <p>processed</p>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container flex gap-2 wrap items-center" style="justify-content:space-between">
+    <a href="../../">← all tools</a>
+    <a href="https://silvia-odwyer.github.io/photon/" target="_blank" rel="noopener">photonlibrary.developer.io</a>
+  </div>
+</footer>
+
+<script type="module">
+  import init, * as photon from 'https://unpkg.com/@silvia-odwyer/photon@0.3.3/photon_rs.js';
+
+  const dot      = document.getElementById('dot');
+  const status   = document.getElementById('status');
+  const fileInput = document.getElementById('file');
+  const filterSel = document.getElementById('filter');
+  const applyBtn  = document.getElementById('apply');
+  const origCanvas = document.getElementById('original');
+  const procCanvas = document.getElementById('processed');
+
+  function setStatus(state, msg) {
+    dot.className = 'status-dot ' + state;
+    status.textContent = msg;
+  }
+
+  await init('https://unpkg.com/@silvia-odwyer/photon@0.3.3/photon_rs_bg.wasm');
+  setStatus('ready', 'photon ready');
+  fileInput.disabled = false;
+  filterSel.disabled = false;
+
+  let imgBitmap = null;
+
+  fileInput.addEventListener('change', async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    imgBitmap = await createImageBitmap(file);
+    const ctx = origCanvas.getContext('2d');
+    origCanvas.width  = imgBitmap.width;
+    origCanvas.height = imgBitmap.height;
+    ctx.drawImage(imgBitmap, 0, 0);
+    applyBtn.disabled = false;
+    setStatus('ready', `loaded ${imgBitmap.width}×${imgBitmap.height}`);
+  });
+
+  applyBtn.addEventListener('click', () => {
+    if (!imgBitmap) return;
+
+    const srcCtx = origCanvas.getContext('2d');
+    const imageData = srcCtx.getImageData(0, 0, origCanvas.width, origCanvas.height);
+    const photonImg = photon.PhotonImage.new_from_rawpixels(
+      new Uint8Array(imageData.data.buffer),
+      origCanvas.width, origCanvas.height
+    );
+
+    const fn = filterSel.value;
+    if (typeof photon[fn] === 'function') {
+      photon[fn](photonImg);
+    } else if (typeof photon.effects?.[fn] === 'function') {
+      photon.effects[fn](photonImg);
+    }
+
+    procCanvas.width  = origCanvas.width;
+    procCanvas.height = origCanvas.height;
+    const dstCtx = procCanvas.getContext('2d');
+    const outData = new ImageData(
+      new Uint8ClampedArray(photonImg.get_raw_pixels()),
+      origCanvas.width, origCanvas.height
+    );
+    dstCtx.putImageData(outData, 0, 0);
+    photonImg.free();
+    setStatus('ready', `filter applied: ${fn}`);
+  });
+</script>
+</body>
+</html>

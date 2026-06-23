@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Perspective — wasm.eliana.lol</title>
+  <link rel="stylesheet" href="../../style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@finos/perspective-viewer@3.1.5/dist/css/pro-dark.css" />
+  <style>
+    perspective-viewer {
+      width: 100%;
+      height: 520px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: block;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container inner">
+    <a class="wordmark" href="../../">wasm<span>.</span>eliana<span>.</span>lol</a>
+    <nav>
+      <a href="../sql-js/">sql.js</a>
+      <a href="../pyodide/">pyodide</a>
+      <a href="../quickjs/">quickjs</a>
+      <a href="../photon/">photon</a>
+      <a href="../ffmpeg/">ffmpeg</a>
+      <a href="../voy/">voy</a>
+      <a href="../dotlottie/">dotlottie</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="tool-hero">
+      <span class="tag">data viz</span>
+      <h1>Perspective</h1>
+      <p class="desc">Streaming analytics and visualization engine built on WASM. Pivot tables, charts, and grids — all running client-side.</p>
+      <div class="meta">
+        <a href="https://github.com/finos/perspective" target="_blank" rel="noopener">github ↗</a>
+        <span>cdn: jsdelivr</span>
+        <span>finos / j.p. morgan open source</span>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="dot"></div>
+      <span id="status">loading perspective...</span>
+    </div>
+
+    <p class="comment mt-2" style="margin-bottom:1rem">
+      use the toolbar on the left of the viewer to switch between datagrid, bar chart, heatmap, and more.
+    </p>
+
+    <perspective-viewer id="viewer"></perspective-viewer>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container flex gap-2 wrap items-center" style="justify-content:space-between">
+    <a href="../../">← all tools</a>
+    <a href="https://perspective.finos.org" target="_blank" rel="noopener">perspective.finos.org</a>
+  </div>
+</footer>
+
+<script type="module">
+  import perspective from 'https://cdn.jsdelivr.net/npm/@finos/perspective@3.1.5/dist/cdn/perspective.js';
+  import 'https://cdn.jsdelivr.net/npm/@finos/perspective-viewer@3.1.5/dist/cdn/perspective-viewer.js';
+  import 'https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-datagrid@3.1.5/dist/cdn/perspective-viewer-datagrid.js';
+  import 'https://cdn.jsdelivr.net/npm/@finos/perspective-viewer-d3fc@3.1.5/dist/cdn/perspective-viewer-d3fc.js';
+
+  const dot    = document.getElementById('dot');
+  const status = document.getElementById('status');
+
+  function setStatus(state, msg) {
+    dot.className = 'status-dot ' + state;
+    status.textContent = msg;
+  }
+
+  function rand(min, max) { return Math.random() * (max - min) + min; }
+
+  const categories = ['Electronics', 'Clothing', 'Food', 'Books', 'Sports'];
+  const regions    = ['North', 'South', 'East', 'West'];
+  const rows = Array.from({ length: 500 }, (_, i) => ({
+    id:       i + 1,
+    date:     new Date(Date.now() - rand(0, 365 * 24 * 3600000)).toISOString().slice(0, 10),
+    category: categories[Math.floor(rand(0, categories.length))],
+    region:   regions[Math.floor(rand(0, regions.length))],
+    revenue:  Math.round(rand(100, 10000)),
+    units:    Math.round(rand(1, 200)),
+    margin:   parseFloat(rand(0.05, 0.45).toFixed(3)),
+  }));
+
+  try {
+    const worker = await perspective.worker();
+    const table  = await worker.table(rows);
+    const viewer = document.getElementById('viewer');
+    await viewer.load(table);
+    await viewer.restore({ plugin: 'Datagrid' });
+    setStatus('ready', `loaded ${rows.length} rows`);
+  } catch (e) {
+    setStatus('error', 'failed: ' + e.message);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuickJS — wasm.eliana.lol</title>
+  <link rel="stylesheet" href="../../style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container inner">
+    <a class="wordmark" href="../../">wasm<span>.</span>eliana<span>.</span>lol</a>
+    <nav>
+      <a href="../sql-js/">sql.js</a>
+      <a href="../pyodide/">pyodide</a>
+      <a href="../photon/">photon</a>
+      <a href="../ffmpeg/">ffmpeg</a>
+      <a href="../voy/">voy</a>
+      <a href="../perspective/">perspective</a>
+      <a href="../dotlottie/">dotlottie</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="tool-hero">
+      <span class="tag">language runtime</span>
+      <h1>QuickJS</h1>
+      <p class="desc">A complete JavaScript engine running inside JavaScript. Sandboxed ES2023 eval — code in the guest cannot touch the host page.</p>
+      <div class="meta">
+        <a href="https://github.com/nicolo-ribaudo/quickjs-ng-quickjs-emscripten-fork" target="_blank" rel="noopener">github ↗</a>
+        <span>cdn: esm.sh</span>
+        <span>~300 KB wasm</span>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="dot"></div>
+      <span id="status">loading quickjs...</span>
+    </div>
+
+    <div class="section">
+      <div class="section-label">sandboxed code</div>
+      <div class="demo-area">
+        <label>javascript (runs in isolated vm — no access to window/document)</label>
+        <textarea id="code" rows="12">// this runs in a sandboxed QuickJS VM
+// typeof window === 'undefined' here
+
+function fib(n) {
+  if (n <= 1) return n;
+  return fib(n - 1) + fib(n - 2);
+}
+
+const results = [];
+for (let i = 0; i <= 10; i++) {
+  results.push(`fib(${i}) = ${fib(i)}`);
+}
+
+results.join('\n');</textarea>
+      </div>
+      <div class="mt-2">
+        <button class="btn" id="run" disabled>run in vm</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">result</div>
+      <div class="output empty" id="output">// vm output will appear here</div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container flex gap-2 wrap items-center" style="justify-content:space-between">
+    <a href="../../">← all tools</a>
+    <a href="https://bellard.org/quickjs/" target="_blank" rel="noopener">bellard.org/quickjs</a>
+  </div>
+</footer>
+
+<script type="module">
+  import { getQuickJS } from 'https://esm.sh/quickjs-emscripten@0.29.2';
+
+  const dot    = document.getElementById('dot');
+  const status = document.getElementById('status');
+  const output = document.getElementById('output');
+  const runBtn = document.getElementById('run');
+
+  function setStatus(state, msg) {
+    dot.className = 'status-dot ' + state;
+    status.textContent = msg;
+  }
+
+  let QuickJS;
+  try {
+    QuickJS = await getQuickJS();
+    setStatus('ready', 'quickjs vm ready');
+    runBtn.disabled = false;
+  } catch (e) {
+    setStatus('error', 'failed to load: ' + e.message);
+  }
+
+  runBtn.addEventListener('click', () => {
+    const code = document.getElementById('code').value;
+    const vm = QuickJS.newContext();
+    try {
+      const result = vm.evalCode(code, 'sandbox.js');
+      if (result.error) {
+        const err = vm.dump(result.error);
+        result.error.dispose();
+        output.textContent = String(err?.message || err);
+        output.className = 'output error';
+      } else {
+        const val = vm.dump(result.value);
+        result.value.dispose();
+        output.textContent = typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val);
+        output.className = 'output success';
+      }
+    } finally {
+      vm.dispose();
+    }
+  });
+</script>
+</body>
+</html>

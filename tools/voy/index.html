@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voy — wasm.eliana.lol</title>
+  <link rel="stylesheet" href="../../style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container inner">
+    <a class="wordmark" href="../../">wasm<span>.</span>eliana<span>.</span>lol</a>
+    <nav>
+      <a href="../sql-js/">sql.js</a>
+      <a href="../pyodide/">pyodide</a>
+      <a href="../quickjs/">quickjs</a>
+      <a href="../photon/">photon</a>
+      <a href="../ffmpeg/">ffmpeg</a>
+      <a href="../perspective/">perspective</a>
+      <a href="../dotlottie/">dotlottie</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="tool-hero">
+      <span class="tag">search</span>
+      <h1>Voy</h1>
+      <p class="desc">WASM-powered vector similarity search. Index embeddings and find nearest neighbours entirely in-browser — no vector database needed.</p>
+      <div class="meta">
+        <a href="https://github.com/tantaraio/voy" target="_blank" rel="noopener">github ↗</a>
+        <span>cdn: esm.sh</span>
+        <span>~150 KB wasm</span>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="dot"></div>
+      <span id="status">loading voy...</span>
+    </div>
+
+    <p class="comment mt-2" style="margin-bottom:1.5rem">
+      this demo uses random 8-dimensional vectors to show the mechanics. in production you'd use real embeddings (e.g. from transformers.js).
+    </p>
+
+    <div class="section">
+      <div class="section-label">index</div>
+      <div class="demo-area">
+        <label>items to index (one per line, label:v1,v2,...,v8)</label>
+        <textarea id="items" rows="8">apple: 0.9, 0.1, 0.2, 0.8, 0.3, 0.5, 0.1, 0.4
+banana: 0.8, 0.2, 0.3, 0.7, 0.4, 0.6, 0.2, 0.5
+cherry: 0.1, 0.9, 0.8, 0.2, 0.7, 0.3, 0.9, 0.6
+carrot: 0.2, 0.8, 0.7, 0.3, 0.8, 0.2, 0.8, 0.7
+potato: 0.3, 0.7, 0.6, 0.4, 0.9, 0.1, 0.7, 0.8
+grape: 0.85, 0.15, 0.25, 0.75, 0.35, 0.55, 0.15, 0.45</textarea>
+      </div>
+      <div class="mt-2">
+        <button class="btn" id="build" disabled>build index</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">query</div>
+      <div class="demo-area">
+        <label>query vector (8 values, comma-separated)</label>
+        <input type="text" id="query" value="0.85, 0.15, 0.2, 0.78, 0.32, 0.52, 0.12, 0.42" disabled />
+      </div>
+      <div class="mt-2 demo-area">
+        <label>k (neighbours to return)</label>
+        <input type="number" id="k" value="3" min="1" max="10" style="width:80px" disabled />
+      </div>
+      <div class="mt-2">
+        <button class="btn" id="search" disabled>search</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">results</div>
+      <div class="output empty" id="output">// nearest neighbours will appear here</div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container flex gap-2 wrap items-center" style="justify-content:space-between">
+    <a href="../../">← all tools</a>
+    <a href="https://github.com/tantaraio/voy" target="_blank" rel="noopener">tantaraio/voy</a>
+  </div>
+</footer>
+
+<script type="module">
+  import { Voy } from 'https://esm.sh/voy-search@0.6.2';
+
+  const dot      = document.getElementById('dot');
+  const status   = document.getElementById('status');
+  const output   = document.getElementById('output');
+  const buildBtn = document.getElementById('build');
+  const searchBtn = document.getElementById('search');
+  const queryIn  = document.getElementById('query');
+  const kIn      = document.getElementById('k');
+
+  function setStatus(state, msg) {
+    dot.className = 'status-dot ' + state;
+    status.textContent = msg;
+  }
+
+  // Voy loads synchronously via esm.sh
+  setStatus('ready', 'voy ready');
+  buildBtn.disabled = false;
+
+  let index = null;
+  let labels = [];
+
+  buildBtn.addEventListener('click', () => {
+    const lines = document.getElementById('items').value.trim().split('\n').filter(Boolean);
+    labels = [];
+    const embeddings = [];
+
+    for (const line of lines) {
+      const [label, rest] = line.split(':');
+      if (!label || !rest) continue;
+      const vec = rest.split(',').map(Number);
+      labels.push(label.trim());
+      embeddings.push(vec);
+    }
+
+    const resource = { embeddings: embeddings.map((vec, i) => ({ id: String(i), title: labels[i], url: labels[i], embeddings: vec })) };
+    index = new Voy(resource);
+    setStatus('ready', `indexed ${labels.length} items`);
+    queryIn.disabled = false;
+    kIn.disabled = false;
+    searchBtn.disabled = false;
+    output.textContent = `// index built with ${labels.length} items`;
+    output.className = 'output';
+  });
+
+  searchBtn.addEventListener('click', () => {
+    if (!index) return;
+    const q = queryIn.value.split(',').map(Number);
+    const k = parseInt(kIn.value) || 3;
+    const results = index.search(q, k);
+    const lines = results.neighbors.map((n, i) =>
+      `${i + 1}. ${n.title}  (distance: ${n.distance.toFixed(4)})`
+    );
+    output.textContent = lines.join('\n');
+    output.className = 'output success';
+  });
+</script>
+</body>
+</html>

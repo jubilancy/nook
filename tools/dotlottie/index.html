@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dotLottie — wasm.eliana.lol</title>
+  <link rel="stylesheet" href="../../style.css" />
+  <style>
+    .lottie-wrap {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-raised);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      margin-top: 1rem;
+      min-height: 300px;
+    }
+    dotlottie-player {
+      width: 300px;
+      height: 300px;
+    }
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container inner">
+    <a class="wordmark" href="../../">wasm<span>.</span>eliana<span>.</span>lol</a>
+    <nav>
+      <a href="../sql-js/">sql.js</a>
+      <a href="../pyodide/">pyodide</a>
+      <a href="../quickjs/">quickjs</a>
+      <a href="../photon/">photon</a>
+      <a href="../ffmpeg/">ffmpeg</a>
+      <a href="../voy/">voy</a>
+      <a href="../perspective/">perspective</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="tool-hero">
+      <span class="tag">animation</span>
+      <h1>dotLottie</h1>
+      <p class="desc">High-fidelity Lottie animation renderer powered by a WASM rendering engine. Smoother than pure-JS alternatives, especially on mobile.</p>
+      <div class="meta">
+        <a href="https://github.com/LottieFiles/dotlottie-web" target="_blank" rel="noopener">github ↗</a>
+        <span>cdn: jsdelivr</span>
+        <span>wasm loaded automatically</span>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="dot"></div>
+      <span id="status">loading dotlottie...</span>
+    </div>
+
+    <div class="section">
+      <div class="section-label">animation url</div>
+      <div class="demo-area">
+        <label>lottie / dotlottie url</label>
+        <input type="text" id="url" value="https://lottie.host/647d4c8e-b32f-434c-ae79-ff03d72fc334/0hEi5pJb4X.lottie" />
+      </div>
+      <div class="mt-2">
+        <button class="btn" id="load-btn">load</button>
+      </div>
+    </div>
+
+    <div class="lottie-wrap">
+      <dotlottie-player
+        id="player"
+        autoplay
+        loop
+        src="https://lottie.host/647d4c8e-b32f-434c-ae79-ff03d72fc334/0hEi5pJb4X.lottie"
+      ></dotlottie-player>
+    </div>
+
+    <div class="controls">
+      <button class="btn btn-ghost" id="play">play</button>
+      <button class="btn btn-ghost" id="pause">pause</button>
+      <button class="btn btn-ghost" id="stop">stop</button>
+      <label style="font-size:var(--size-sm);color:var(--dim);display:flex;align-items:center;gap:0.5rem">
+        speed
+        <input type="range" id="speed" min="0.1" max="3" step="0.1" value="1" style="width:100px" />
+        <span id="speed-val">1×</span>
+      </label>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container flex gap-2 wrap items-center" style="justify-content:space-between">
+    <a href="../../">← all tools</a>
+    <a href="https://dotlottie.io" target="_blank" rel="noopener">dotlottie.io</a>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@lottiefiles/dotlottie-wc@0.6.2/dist/dotlottie-wc.js" type="module"></script>
+<script>
+  const dot    = document.getElementById('dot');
+  const status = document.getElementById('status');
+  const player = document.getElementById('player');
+
+  function setStatus(state, msg) {
+    dot.className = 'status-dot ' + state;
+    status.textContent = msg;
+  }
+
+  player.addEventListener('ready', () => setStatus('ready', 'animation ready'));
+  player.addEventListener('load', ()  => setStatus('ready', 'loaded'));
+  player.addEventListener('error', e  => setStatus('error', 'error: ' + (e.detail || 'unknown')));
+
+  // give the wc a moment to register
+  setTimeout(() => {
+    if (dot.className.includes('loading')) setStatus('ready', 'dotlottie loaded');
+  }, 3000);
+
+  document.getElementById('load-btn').addEventListener('click', () => {
+    const src = document.getElementById('url').value.trim();
+    if (src) player.setAttribute('src', src);
+  });
+
+  document.getElementById('play').addEventListener('click',  () => player.play?.());
+  document.getElementById('pause').addEventListener('click', () => player.pause?.());
+  document.getElementById('stop').addEventListener('click',  () => player.stop?.());
+
+  const speedSlider = document.getElementById('speed');
+  const speedVal    = document.getElementById('speed-val');
+  speedSlider.addEventListener('input', () => {
+    const v = parseFloat(speedSlider.value);
+    speedVal.textContent = v + '×';
+    if (player.setSpeed) player.setSpeed(v);
+  });
+</script>
+</body>
+</html>

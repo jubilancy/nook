@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sql.js — wasm.eliana.lol</title>
+  <link rel="stylesheet" href="../../style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container inner">
+    <a class="wordmark" href="../../">wasm<span>.</span>eliana<span>.</span>lol</a>
+    <nav>
+      <a href="../pyodide/">pyodide</a>
+      <a href="../quickjs/">quickjs</a>
+      <a href="../photon/">photon</a>
+      <a href="../ffmpeg/">ffmpeg</a>
+      <a href="../voy/">voy</a>
+      <a href="../perspective/">perspective</a>
+      <a href="../dotlottie/">dotlottie</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="tool-hero">
+      <span class="tag">database</span>
+      <h1>sql.js</h1>
+      <p class="desc">SQLite compiled to WebAssembly. A full relational database running in your browser tab, no server required.</p>
+      <div class="meta">
+        <a href="https://github.com/sql-js/sql.js" target="_blank" rel="noopener">github ↗</a>
+        <span>cdn: cdnjs</span>
+        <span>~1.5 MB wasm</span>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="dot"></div>
+      <span id="status">loading sql.js...</span>
+    </div>
+
+    <div class="section">
+      <div class="section-label">schema</div>
+      <div class="demo-area">
+        <label>setup sql (runs once on load)</label>
+        <textarea id="schema" rows="6">CREATE TABLE books (
+  id    INTEGER PRIMARY KEY,
+  title TEXT NOT NULL,
+  year  INTEGER
+);
+INSERT INTO books VALUES (1, 'Dune', 1965);
+INSERT INTO books VALUES (2, 'Neuromancer', 1984);
+INSERT INTO books VALUES (3, 'A Fire Upon the Deep', 1992);</textarea>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">query</div>
+      <div class="demo-area">
+        <label>sql query</label>
+        <textarea id="query" rows="3">SELECT * FROM books WHERE year > 1970 ORDER BY year;</textarea>
+      </div>
+      <div class="mt-2 flex gap-2 wrap">
+        <button class="btn" id="run" disabled>run query</button>
+        <button class="btn btn-ghost" id="reset">reset db</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">result</div>
+      <div class="output empty" id="output">// results will appear here</div>
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container flex gap-2 wrap items-center" style="justify-content:space-between">
+    <a href="../../">← all tools</a>
+    <a href="https://github.com/sql-js/sql.js" target="_blank" rel="noopener">sql-js/sql.js</a>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script>
+  const dot    = document.getElementById('dot');
+  const status = document.getElementById('status');
+  const output = document.getElementById('output');
+  const runBtn = document.getElementById('run');
+  const resetBtn = document.getElementById('reset');
+
+  let SQL, db;
+
+  function setStatus(state, msg) {
+    dot.className = 'status-dot ' + state;
+    status.textContent = msg;
+  }
+
+  function initDB() {
+    db = new SQL.Database();
+    const schema = document.getElementById('schema').value;
+    try {
+      db.run(schema);
+    } catch (e) {
+      setStatus('error', 'schema error: ' + e.message);
+    }
+  }
+
+  initSqlJs({ locateFile: f => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${f}` })
+    .then(sql => {
+      SQL = sql;
+      initDB();
+      setStatus('ready', 'sqlite ready');
+      runBtn.disabled = false;
+    })
+    .catch(e => setStatus('error', 'failed to load: ' + e.message));
+
+  runBtn.addEventListener('click', () => {
+    const q = document.getElementById('query').value.trim();
+    if (!q) return;
+    try {
+      const res = db.exec(q);
+      if (!res.length) {
+        output.textContent = '// query executed, no rows returned';
+        output.className = 'output';
+        return;
+      }
+      const { columns, values } = res[0];
+      const colW = columns.map((c, i) => Math.max(c.length, ...values.map(r => String(r[i]).length)));
+      const row = r => r.map((v, i) => String(v).padEnd(colW[i])).join('  ');
+      const divider = colW.map(w => '-'.repeat(w)).join('--');
+      const lines = [row(columns), divider, ...values.map(row)];
+      output.textContent = lines.join('\n');
+      output.className = 'output success';
+    } catch (e) {
+      output.textContent = e.message;
+      output.className = 'output error';
+    }
+  });
+
+  resetBtn.addEventListener('click', () => {
+    db.close();
+    initDB();
+    output.textContent = '// database reset';
+    output.className = 'output empty';
+  });
+</script>
+</body>
+</html>

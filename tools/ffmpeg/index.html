@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FFmpeg.wasm — wasm.eliana.lol</title>
+  <link rel="stylesheet" href="../../style.css" />
+  <style>
+    video { width: 100%; border-radius: var(--radius); background: var(--bg-raised); display: block; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container inner">
+    <a class="wordmark" href="../../">wasm<span>.</span>eliana<span>.</span>lol</a>
+    <nav>
+      <a href="../sql-js/">sql.js</a>
+      <a href="../pyodide/">pyodide</a>
+      <a href="../quickjs/">quickjs</a>
+      <a href="../photon/">photon</a>
+      <a href="../voy/">voy</a>
+      <a href="../perspective/">perspective</a>
+      <a href="../dotlottie/">dotlottie</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <div class="tool-hero">
+      <span class="tag">video</span>
+      <h1>FFmpeg.wasm</h1>
+      <p class="desc">The full FFmpeg suite compiled to WebAssembly. Transcode, trim, and extract frames entirely client-side — nothing leaves your browser.</p>
+      <div class="meta">
+        <a href="https://github.com/ffmpegwasm/ffmpeg.wasm" target="_blank" rel="noopener">github ↗</a>
+        <span>cdn: unpkg / esm.sh</span>
+        <span>requires COOP/COEP headers</span>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <div class="status-dot loading" id="dot"></div>
+      <span id="status">loading ffmpeg core...</span>
+    </div>
+
+    <div class="section">
+      <div class="section-label">input</div>
+      <div class="demo-area">
+        <label>video file (mp4, webm, mov...)</label>
+        <input type="file" id="file" accept="video/*" disabled />
+      </div>
+
+      <div class="mt-2 demo-area">
+        <label>operation</label>
+        <select id="op" disabled>
+          <option value="mp4">convert to mp4 (h264)</option>
+          <option value="webm">convert to webm (vp8)</option>
+          <option value="gif">extract first 3s as gif</option>
+        </select>
+      </div>
+
+      <div class="mt-2">
+        <button class="btn" id="run" disabled>transcode</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">log</div>
+      <div class="output empty" id="log">// ffmpeg log will stream here</div>
+    </div>
+
+    <div class="section" id="out-section" style="display:none">
+      <div class="section-label">output</div>
+      <video id="preview" controls></video>
+      <div class="mt-2">
+        <a class="btn" id="dl" download>download</a>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container flex gap-2 wrap items-center" style="justify-content:space-between">
+    <a href="../../">← all tools</a>
+    <a href="https://ffmpegwasm.netlify.app" target="_blank" rel="noopener">ffmpegwasm.netlify.app</a>
+  </div>
+</footer>
+
+<script type="module">
+  import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+  import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+  const dot     = document.getElementById('dot');
+  const status  = document.getElementById('status');
+  const log     = document.getElementById('log');
+  const runBtn  = document.getElementById('run');
+  const fileIn  = document.getElementById('file');
+  const opSel   = document.getElementById('op');
+  const preview = document.getElementById('preview');
+  const dlLink  = document.getElementById('dl');
+  const outSec  = document.getElementById('out-section');
+
+  function setStatus(state, msg) {
+    dot.className = 'status-dot ' + state;
+    status.textContent = msg;
+  }
+
+  function appendLog(msg) {
+    if (log.classList.contains('empty')) {
+      log.textContent = '';
+      log.className = 'output';
+    }
+    log.textContent += msg + '\n';
+    log.scrollTop = log.scrollHeight;
+  }
+
+  const ffmpeg = new FFmpeg();
+  ffmpeg.on('log', ({ message }) => appendLog(message));
+  ffmpeg.on('progress', ({ progress }) => {
+    setStatus('loading', `transcoding... ${Math.round(progress * 100)}%`);
+  });
+
+  const BASE = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+  try {
+    await ffmpeg.load({
+      coreURL:   await toBlobURL(`${BASE}/ffmpeg-core.js`,   'text/javascript'),
+      wasmURL:   await toBlobURL(`${BASE}/ffmpeg-core.wasm`, 'application/wasm'),
+      workerURL: await toBlobURL(`${BASE}/ffmpeg-core.worker.js`, 'text/javascript'),
+    });
+    setStatus('ready', 'ffmpeg ready');
+    fileIn.disabled = false;
+    opSel.disabled  = false;
+  } catch (e) {
+    setStatus('error', 'load failed — this demo needs COOP/COEP headers (SharedArrayBuffer). Try locally or on a server that sets them.');
+    appendLog('Error: ' + e.message);
+  }
+
+  fileIn.addEventListener('change', () => {
+    if (fileIn.files[0]) runBtn.disabled = false;
+  });
+
+  runBtn.addEventListener('click', async () => {
+    const file = fileIn.files[0];
+    if (!file) return;
+    runBtn.disabled = true;
+    outSec.style.display = 'none';
+    log.textContent = '';
+    log.className = 'output';
+
+    const op      = opSel.value;
+    const inName  = 'input.' + file.name.split('.').pop();
+    const outName = op === 'gif' ? 'output.gif' : `output.${op}`;
+
+    await ffmpeg.writeFile(inName, await fetchFile(file));
+
+    const cmds = {
+      mp4:  ['-i', inName, '-c:v', 'libx264', '-preset', 'fast', '-crf', '28', outName],
+      webm: ['-i', inName, '-c:v', 'libvpx', '-b:v', '1M', outName],
+      gif:  ['-i', inName, '-t', '3', '-vf', 'fps=10,scale=480:-1', outName],
+    };
+
+    try {
+      await ffmpeg.exec(cmds[op]);
+      const data = await ffmpeg.readFile(outName);
+      const mime = op === 'gif' ? 'image/gif' : op === 'webm' ? 'video/webm' : 'video/mp4';
+      const url  = URL.createObjectURL(new Blob([data.buffer], { type: mime }));
+      preview.src  = url;
+      dlLink.href  = url;
+      dlLink.download = outName;
+      outSec.style.display = '';
+      setStatus('ready', 'done');
+    } catch (e) {
+      appendLog('Error: ' + e.message);
+      setStatus('error', 'transcode failed');
+    }
+    runBtn.disabled = false;
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "name": "sql.js",
+  "desc": "SQLite compiled to WASM. Run full SQL in-memory, no server.",
+  "tag": "database"
+}
