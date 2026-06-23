@@ -4,16 +4,16 @@
    tokens
    ---------------------------------------- */
 :root {
-  --bg:        #0f0f13;
-  --bg-raised: #16161d;
-  --border:    #2a2a35;
-  --dim:       #5a5a72;
-  --body:      #c8c8d8;
-  --heading:   #eeeef5;
-  --accent:    #4ecdc4;
-  --accent-dim:#2a7a76;
-  --warn:      #f7b731;
-  --red:       #e05c5c;
+  --bg:        #F8F8F6;
+  --bg-raised: #EFEFEC;
+  --border:    #D8D8D4;
+  --dim:       #888880;
+  --body:      #2c2c28;
+  --heading:   #111110;
+  --accent:    #2a7a76;
+  --accent-dim:#1a5552;
+  --warn:      #c47c00;
+  --red:       #c0392b;
 
   --font: 'Victor Mono', 'Fira Code', 'Cascadia Code', monospace;
   --size-xs:  0.72rem;
@@ -67,11 +67,24 @@ h3 { font-size: var(--size-lg); }
 
 p { max-width: 68ch; }
 
+/* ----------------------------------------
+   links — all states explicit to prevent
+   browser visited-purple from showing through
+   ---------------------------------------- */
 a {
   color: var(--accent);
   text-decoration: none;
 }
-a:hover { text-decoration: underline; text-underline-offset: 3px; }
+a:visited {
+  color: var(--accent);
+}
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+a:active {
+  color: var(--accent-dim);
+}
 a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -91,7 +104,7 @@ code {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.1em 0.4em;
-  color: var(--accent);
+  color: var(--accent-dim);
 }
 
 pre {
@@ -147,21 +160,37 @@ pre code {
   flex-wrap: wrap;
 }
 
-.site-header nav a {
+/* nav links — all states locked down */
+.site-header nav a,
+.site-header nav a:visited {
   color: var(--dim);
   font-size: var(--size-sm);
+  text-decoration: none;
   transition: color 0.15s;
 }
-.site-header nav a:hover { color: var(--accent); text-decoration: none; }
-.site-header nav a.active { color: var(--accent); }
+.site-header nav a:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+.site-header nav a:active {
+  color: var(--accent-dim);
+  text-decoration: none;
+}
+.site-header nav a.active,
+.site-header nav a.active:visited {
+  color: var(--accent);
+}
 
-.wordmark {
+.wordmark,
+.wordmark:visited {
   color: var(--heading);
   font-size: var(--size-base);
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: lowercase;
+  text-decoration: none;
 }
+.wordmark:hover { text-decoration: none; }
 .wordmark span { color: var(--accent); }
 
 .container {
@@ -213,8 +242,9 @@ main {
   color: var(--dim);
 }
 
-.tool-hero .meta a { color: var(--dim); }
-.tool-hero .meta a:hover { color: var(--accent); }
+.tool-hero .meta a,
+.tool-hero .meta a:visited { color: var(--dim); }
+.tool-hero .meta a:hover   { color: var(--accent); text-decoration: none; }
 
 /* ----------------------------------------
    demo area
@@ -279,6 +309,8 @@ select option { background: var(--bg-raised); }
   text-decoration: none;
 }
 
+.btn:visited { color: var(--accent); }
+
 .btn:hover {
   background: var(--accent);
   color: var(--bg);
@@ -299,9 +331,11 @@ select option { background: var(--bg-raised); }
   border-color: var(--border);
   color: var(--dim);
 }
+.btn-ghost:visited { color: var(--dim); }
 .btn-ghost:hover {
   background: var(--border);
   color: var(--body);
+  text-decoration: none;
 }
 
 /* ----------------------------------------
@@ -355,9 +389,9 @@ select option { background: var(--bg-raised); }
   background: var(--dim);
   flex-shrink: 0;
 }
-.status-dot.ready  { background: var(--accent); }
+.status-dot.ready   { background: var(--accent); }
 .status-dot.loading { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
-.status-dot.error  { background: var(--red); }
+.status-dot.error   { background: var(--red); }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
@@ -378,7 +412,8 @@ select option { background: var(--bg-raised); }
   margin-top: 2.5rem;
 }
 
-.tool-card {
+.tool-card,
+.tool-card:visited {
   background: var(--bg);
   padding: 1.5rem;
   display: flex;
@@ -508,8 +543,9 @@ tr:last-child td { border-bottom: none; }
   align-items: center;
 }
 
-.site-footer a { color: var(--dim); }
-.site-footer a:hover { color: var(--accent); }
+.site-footer a,
+.site-footer a:visited { color: var(--dim); }
+.site-footer a:hover   { color: var(--accent); text-decoration: none; }
 
 /* ----------------------------------------
    file input drop zone
