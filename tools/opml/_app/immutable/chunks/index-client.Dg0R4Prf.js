@@ -1,1 +1,0 @@
-import{i as o,a7 as e,g as a,j as u}from"./runtime.CHy57aNk.js";function c(n){o===null&&e(),o.l!==null?i(o).m.push(n):a(()=>{const t=u(n);if(typeof t=="function")return t})}function s(n){o===null&&e(),c(()=>()=>u(n))}function i(n){var t=n.l;return t.u??(t.u={a:[],b:[],m:[]})}export{s as a,c as o};
