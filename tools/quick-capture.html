@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Quick Capture | tools.eliana.lol</title>
+  <link rel="stylesheet" href="global.css" />
+  <link rel="icon" type="image/x-icon" href="favicon.svg" />
+  <style>
+    /* ── layout ── */
+    .container { display: flex; flex-direction: column; gap: 1.25rem; }
+
+    input[type="text"], textarea, select {
+      width: 100%; font-family: monospace;
+      padding: 9px 11px; border: 1px solid var(--puny);
+      background: var(--bg); color: var(--text);
+      box-sizing: border-box; font-size: 0.92rem;
+    }
+    input[type="text"]:focus, textarea:focus, select:focus {
+      outline: none; border-color: var(--accent);
+    }
+    textarea { min-height: 130px; resize: vertical; }
+
+    button {
+      font-family: monospace; padding: 8px 14px; cursor: pointer;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--text); font-size: 0.85rem;
+    }
+    button:hover { background-color: var(--hover); border-color: var(--accent); }
+    button.primary { border-color: var(--accent); color: var(--accent); font-weight: bold; }
+    button.danger { border-style: dashed; color: #ef4444; border-color: #ef4444; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .input-label {
+      font-size: 0.75rem; font-weight: bold;
+      text-transform: uppercase; color: var(--puny);
+      letter-spacing: 0.05em; display: block; margin-bottom: 0.3rem;
+    }
+
+    .row { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-start; }
+    .row > * { flex: 1 1 auto; }
+    .row button { flex: 0 0 auto; align-self: stretch; }
+
+    /* ── capture form ── */
+    #capture-form { border: 1px solid var(--puny); padding: 1rem; display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .tag-row { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+    .tag-chip {
+      font-family: monospace; font-size: 0.75rem;
+      padding: 2px 8px; border: 1px solid var(--puny);
+      cursor: pointer; background: var(--bg); color: var(--puny);
+      user-select: none;
+    }
+    .tag-chip.active { border-color: var(--accent); color: var(--accent); background: var(--highlight); }
+    .tag-chip.add { border-style: dashed; }
+
+    /* ── toolbar ── */
+    .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+    .toolbar-left { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+    #search-input { max-width: 220px; flex: 1 1 160px; }
+    #tag-filter { max-width: 160px; flex: 1 1 120px; font-size: 0.82rem; }
+
+    /* ── notes list ── */
+    #notes-list { display: flex; flex-direction: column; gap: 0.6rem; }
+
+    .note-card {
+      border: 1px solid var(--puny); padding: 0.85rem 1rem;
+      display: flex; flex-direction: column; gap: 0.35rem;
+      position: relative;
+    }
+    .note-card.pinned { border-color: var(--accent); }
+    .note-card.pinned::before {
+      content: '★'; position: absolute; top: 0.5rem; right: 0.5rem;
+      color: var(--accent); font-size: 0.75rem;
+    }
+
+    .note-title { font-weight: bold; font-size: 0.95rem; word-break: break-word; }
+    .note-body {
+      font-size: 0.85rem; color: var(--text); white-space: pre-wrap;
+      word-break: break-word; max-height: 4.5em; overflow: hidden;
+      transition: max-height 0.2s;
+    }
+    .note-body.expanded { max-height: none; }
+    .note-tags { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .note-tag { font-size: 0.7rem; color: var(--accent); border: 1px solid var(--accent); padding: 1px 6px; }
+    .note-meta { font-size: 0.72rem; color: var(--puny); }
+    .note-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.25rem; }
+    .note-actions button { min-width: unset; padding: 4px 10px; font-size: 0.75rem; }
+
+    /* ── status ── */
+    .status-bar {
+      font-size: 0.8rem; padding: 0.5rem 0.75rem;
+      border-left: 3px solid var(--accent);
+      background: var(--highlight); display: none;
+    }
+    .status-bar.show { display: block; }
+    .status-bar.err { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,0.07); }
+
+    /* ── settings panel ── */
+    #settings-panel {
+      border: 1px dashed var(--puny); padding: 1rem;
+      display: none; flex-direction: column; gap: 0.75rem;
+    }
+    #settings-panel.open { display: flex; }
+    #settings-panel h3 { font-size: 0.85rem; text-transform: uppercase; margin: 0; }
+
+    .empty-state { color: var(--puny); font-size: 0.88rem; padding: 1rem 0; text-align: center; }
+
+    .sync-dot {
+      display: inline-block; width: 7px; height: 7px;
+      border-radius: 50%; background: var(--puny);
+      margin-right: 5px; vertical-align: middle;
+    }
+    .sync-dot.synced { background: #4caf50; }
+    .sync-dot.syncing { background: var(--accent); animation: pulse 0.8s infinite; }
+    .sync-dot.error { background: #ef4444; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    .count-badge { font-size: 0.75rem; color: var(--puny); }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="left">
+      <a href="index.html">home</a> | <a href="extra.html">extra</a> |
+      <a href="credits.html">credits</a> |
+      <a href="changelog.html">logs</a>
+    </div>
+    <div class="right">
+      <button id="theme-toggle">[theme]</button> |
+      <a href="https://eliana.lol">site</a>
+    </div>
+  </nav>
+
+  <main>
+    <h1>Quick Capture</h1>
+    <p class="puny">Notes saved as Markdown files to <a href="https://github.com/jubilancy/quick-capture-notes" target="_blank">jubilancy/quick-capture-notes</a> on GitHub.</p>
+
+    <div class="container">
+
+      <!-- Settings -->
+      <div>
+        <div class="row" style="margin-bottom:0.5rem;">
+          <span>
+            <span class="sync-dot" id="sync-dot"></span>
+            <span id="sync-label" style="font-size:0.78rem;color:var(--puny);">not connected</span>
+          </span>
+          <div style="display:flex;gap:0.5rem;">
+            <button onclick="toggleSettings()" style="font-size:0.78rem;padding:4px 10px;min-width:unset;">[settings]</button>
+            <button onclick="loadAllNotes()" style="font-size:0.78rem;padding:4px 10px;min-width:unset;" id="refresh-btn">[refresh]</button>
+            <button onclick="exportAll()" style="font-size:0.78rem;padding:4px 10px;min-width:unset;">[export JSON]</button>
+          </div>
+        </div>
+
+        <div id="settings-panel">
+          <h3>GitHub Settings</h3>
+          <div>
+            <span class="input-label">Personal Access Token (stored in localStorage only)</span>
+            <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" />
+            <span style="font-size:0.72rem;color:var(--puny);">
+              Needs <code>repo</code> scope. <a href="https://github.com/settings/tokens/new?scopes=repo&description=quick-capture" target="_blank">Generate one here ↗</a>
+            </span>
+          </div>
+          <div>
+            <span class="input-label">Folder in repo</span>
+            <input type="text" id="gh-folder" placeholder="notes" value="notes" />
+          </div>
+          <div>
+            <span class="input-label">Default tags (comma-separated)</span>
+            <input type="text" id="gh-tags" placeholder="idea, todo, link, quote" value="idea, todo, link, quote, journal" />
+          </div>
+          <div class="row">
+            <button class="primary" onclick="saveSettings()">Save Settings</button>
+            <button onclick="toggleSettings()">Close</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Capture form -->
+      <div id="capture-form">
+        <div>
+          <span class="input-label">Title (optional — auto-generated if blank)</span>
+          <input type="text" id="note-title" placeholder="Note title…" />
+        </div>
+        <div>
+          <span class="input-label">Note</span>
+          <textarea id="note-body" placeholder="Start typing… Markdown supported."></textarea>
+        </div>
+        <div>
+          <span class="input-label">Tags</span>
+          <div class="tag-row" id="tag-row">
+            <!-- populated by JS -->
+          </div>
+        </div>
+        <div class="row">
+          <button class="primary" id="save-btn" onclick="saveNote()">Save to GitHub</button>
+          <button onclick="clearForm()">Clear</button>
+          <button onclick="togglePin()" id="pin-btn" title="Pin this note">[pin]</button>
+        </div>
+      </div>
+
+      <div class="status-bar" id="status-bar"></div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <input type="text" id="search-input" placeholder="Search notes…" oninput="renderNotes()" />
+          <select id="tag-filter" onchange="renderNotes()">
+            <option value="">All tags</option>
+          </select>
+          <select id="sort-by" onchange="renderNotes()">
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="pinned">Pinned first</option>
+            <option value="az">A → Z</option>
+          </select>
+        </div>
+        <span class="count-badge" id="count-badge"></span>
+      </div>
+
+      <!-- Notes list -->
+      <div id="notes-list">
+        <div class="empty-state">No notes yet — configure settings and save your first capture.</div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer style="margin-top: 4rem; text-align: center" class="puny">
+    © 2026 eliana.lol • <a href="credits.html">credits</a>
+  </footer>
+
+  <script>
+    // ── Theme ────────────────────────────────────────────────────────────────
+    const htmlEl = document.documentElement;
+    const toggleBtn = document.getElementById('theme-toggle');
+    const savedTheme = localStorage.getItem('theme') ||
+      (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    htmlEl.setAttribute('data-theme', savedTheme);
+    toggleBtn.innerText = savedTheme === 'dark' ? '[light]' : '[dark]';
+    toggleBtn.onclick = () => {
+      const now = htmlEl.getAttribute('data-theme');
+      const next = now === 'dark' ? 'light' : 'dark';
+      htmlEl.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      toggleBtn.innerText = next === 'dark' ? '[light]' : '[dark]';
+    };
+  </script>
+
+  <script>
+    // ── Config ───────────────────────────────────────────────────────────────
+    const REPO  = 'jubilancy/quick-capture-notes';
+    const API   = 'https://api.github.com';
+
+    let cfg = {
+      token:  localStorage.getItem('qc-token')  || '',
+      folder: localStorage.getItem('qc-folder') || 'notes',
+      tags:   localStorage.getItem('qc-tags')   || 'idea, todo, link, quote, journal',
+    };
+
+    // In-memory note cache (title, body, tags, date, pinned, sha, path)
+    let notes = JSON.parse(localStorage.getItem('qc-cache') || '[]');
+    let activeTags = new Set();
+    let isPinned = false;
+
+    // ── Settings ─────────────────────────────────────────────────────────────
+    function toggleSettings() {
+      const p = document.getElementById('settings-panel');
+      p.classList.toggle('open');
+      if (p.classList.contains('open')) {
+        document.getElementById('gh-token').value  = cfg.token;
+        document.getElementById('gh-folder').value = cfg.folder;
+        document.getElementById('gh-tags').value   = cfg.tags;
+      }
+    }
+
+    function saveSettings() {
+      cfg.token  = document.getElementById('gh-token').value.trim();
+      cfg.folder = document.getElementById('gh-folder').value.trim() || 'notes';
+      cfg.tags   = document.getElementById('gh-tags').value.trim();
+      localStorage.setItem('qc-token',  cfg.token);
+      localStorage.setItem('qc-folder', cfg.folder);
+      localStorage.setItem('qc-tags',   cfg.tags);
+      toggleSettings();
+      buildTagChips();
+      buildTagFilter();
+      loadAllNotes();
+    }
+
+    // ── Tag chips ─────────────────────────────────────────────────────────────
+    function buildTagChips() {
+      const row = document.getElementById('tag-row');
+      const tagList = cfg.tags.split(',').map(t => t.trim()).filter(Boolean);
+      row.innerHTML = '';
+      tagList.forEach(t => {
+        const chip = document.createElement('span');
+        chip.className = 'tag-chip' + (activeTags.has(t) ? ' active' : '');
+        chip.textContent = '#' + t;
+        chip.onclick = () => {
+          if (activeTags.has(t)) activeTags.delete(t);
+          else activeTags.add(t);
+          chip.classList.toggle('active');
+        };
+        row.appendChild(chip);
+      });
+      // Add custom tag
+      const addChip = document.createElement('span');
+      addChip.className = 'tag-chip add';
+      addChip.textContent = '+ tag';
+      addChip.onclick = () => {
+        const t = prompt('New tag name:');
+        if (!t) return;
+        const tag = t.trim().toLowerCase().replace(/\s+/g, '-');
+        cfg.tags = cfg.tags + ', ' + tag;
+        localStorage.setItem('qc-tags', cfg.tags);
+        activeTags.add(tag);
+        buildTagChips();
+        buildTagFilter();
+      };
+      row.appendChild(addChip);
+    }
+
+    function buildTagFilter() {
+      const sel = document.getElementById('tag-filter');
+      const current = sel.value;
+      sel.innerHTML = '<option value="">All tags</option>';
+      // Collect all tags from notes + config
+      const allTags = new Set(cfg.tags.split(',').map(t => t.trim()).filter(Boolean));
+      notes.forEach(n => n.tags.forEach(t => allTags.add(t)));
+      allTags.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t; opt.textContent = '#' + t;
+        if (t === current) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    // ── GitHub API helpers ────────────────────────────────────────────────────
+    function headers() {
+      return {
+        'Authorization': `Bearer ${cfg.token}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+      };
+    }
+
+    function setSyncState(state) {
+      const dot   = document.getElementById('sync-dot');
+      const label = document.getElementById('sync-label');
+      dot.className = 'sync-dot ' + state;
+      label.textContent = state === 'synced'  ? 'synced' :
+                          state === 'syncing' ? 'syncing…' :
+                          state === 'error'   ? 'sync error' : 'not connected';
+    }
+
+    // ── Load all notes from repo ──────────────────────────────────────────────
+    async function loadAllNotes() {
+      if (!cfg.token) { showStatus('Add your GitHub token in [settings] first.', true); return; }
+      setSyncState('syncing');
+      const btn = document.getElementById('refresh-btn');
+      btn.disabled = true;
+      try {
+        // Get folder contents
+        const res = await fetch(`${API}/repos/${REPO}/contents/${cfg.folder}`, { headers: headers() });
+        if (res.status === 404) {
+          // Folder doesn't exist yet — that's fine, will be created on first save
+          notes = [];
+          setSyncState('synced');
+          saveCache();
+          renderNotes();
+          btn.disabled = false;
+          return;
+        }
+        if (!res.ok) throw new Error(`GitHub ${res.status}: ${(await res.json()).message}`);
+        const files = await res.json();
+        const mdFiles = files.filter(f => f.name.endsWith('.md'));
+
+        // Fetch each file's content in parallel (cap at 30)
+        const fetched = await Promise.allSettled(
+          mdFiles.slice(0, 60).map(f => fetchNoteFile(f))
+        );
+
+        notes = fetched
+          .filter(r => r.status === 'fulfilled')
+          .map(r => r.value)
+          .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        saveCache();
+        buildTagFilter();
+        renderNotes();
+        setSyncState('synced');
+        showStatus(`✓ Loaded ${notes.length} note${notes.length !== 1 ? 's' : ''} from GitHub`);
+      } catch(e) {
+        setSyncState('error');
+        showStatus(e.message, true);
+      }
+      btn.disabled = false;
+    }
+
+    async function fetchNoteFile(file) {
+      const res = await fetch(file.download_url);
+      const raw = await res.text();
+      return parseMd(raw, file.path, file.sha);
+    }
+
+    // ── Markdown ↔ note object ────────────────────────────────────────────────
+    function noteToMd(note) {
+      const tagLine = note.tags.length ? note.tags.map(t => `#${t}`).join(' ') : '';
+      return `---
+title: ${note.title}
+date: ${note.date}
+tags: [${note.tags.join(', ')}]
+pinned: ${note.pinned}
+---
+
+${tagLine ? tagLine + '\n\n' : ''}${note.body}
+`;
+    }
+
+    function parseMd(raw, path, sha) {
+      const fmMatch = raw.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
+      if (!fmMatch) {
+        // No frontmatter — treat whole file as body
+        return { title: path.split('/').pop().replace('.md',''), body: raw.trim(), tags: [], date: new Date().toISOString(), pinned: false, path, sha };
+      }
+      const fm = fmMatch[1];
+      let body = fmMatch[2].trim();
+      // Strip leading tag line if present
+      body = body.replace(/^(#\w+\s*)+\n\n/, '');
+
+      const getFM = (key) => { const m = fm.match(new RegExp(`^${key}:\\s*(.+)$`, 'm')); return m ? m[1].trim() : ''; };
+      const tagsRaw = getFM('tags').replace(/[\[\]]/g, '');
+      const tags = tagsRaw ? tagsRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+      return {
+        title:  getFM('title') || path.split('/').pop().replace('.md',''),
+        date:   getFM('date')  || new Date().toISOString(),
+        tags,
+        pinned: getFM('pinned') === 'true',
+        body,
+        path,
+        sha,
+      };
+    }
+
+    // ── Save note to GitHub ───────────────────────────────────────────────────
+    async function saveNote() {
+      if (!cfg.token) { showStatus('Add your GitHub token in [settings] first.', true); return; }
+
+      const body = document.getElementById('note-body').value.trim();
+      if (!body) { showStatus('Note body is empty.', true); return; }
+
+      const titleInput = document.getElementById('note-title').value.trim();
+      const now  = new Date();
+      const date = now.toISOString();
+      const slug = (titleInput || body.slice(0, 40))
+        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      const stamp = now.toISOString().slice(0,10);
+      const filename = `${stamp}-${slug}.md`;
+      const path = `${cfg.folder}/${filename}`;
+      const title = titleInput || body.split('\n')[0].slice(0, 60);
+
+      const note = {
+        title, body, date,
+        tags: [...activeTags],
+        pinned: isPinned,
+        path,
+        sha: null,
+      };
+
+      const content = btoa(unescape(encodeURIComponent(noteToMd(note))));
+
+      setSyncState('syncing');
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API}/repos/${REPO}/contents/${path}`, {
+          method: 'PUT',
+          headers: headers(),
+          body: JSON.stringify({
+            message: `capture: ${title}`,
+            content,
+          }),
+        });
+        if (!res.ok) throw new Error(`GitHub ${res.status}: ${(await res.json()).message}`);
+        const data = await res.json();
+        note.sha = data.content.sha;
+
+        notes.unshift(note);
+        saveCache();
+        buildTagFilter();
+        renderNotes();
+        clearForm();
+        setSyncState('synced');
+        showStatus(`✓ Saved → ${cfg.folder}/${filename}`);
+      } catch(e) {
+        setSyncState('error');
+        showStatus(e.message, true);
+      }
+      btn.disabled = false;
+    }
+
+    // ── Delete note ───────────────────────────────────────────────────────────
+    async function deleteNote(path, sha, idx) {
+      if (!confirm('Delete this note from GitHub?')) return;
+      setSyncState('syncing');
+      try {
+        const res = await fetch(`${API}/repos/${REPO}/contents/${path}`, {
+          method: 'DELETE',
+          headers: headers(),
+          body: JSON.stringify({ message: `delete: ${path.split('/').pop()}`, sha }),
+        });
+        if (!res.ok) throw new Error(`GitHub ${res.status}: ${(await res.json()).message}`);
+        notes = notes.filter(n => n.path !== path);
+        saveCache();
+        renderNotes();
+        setSyncState('synced');
+        showStatus('✓ Note deleted');
+      } catch(e) {
+        setSyncState('error');
+        showStatus(e.message, true);
+      }
+    }
+
+    // ── Toggle pin (update file on GitHub) ───────────────────────────────────
+    async function pinNote(note) {
+      note.pinned = !note.pinned;
+      if (!note.sha) { saveCache(); renderNotes(); return; }
+      const content = btoa(unescape(encodeURIComponent(noteToMd(note))));
+      try {
+        const res = await fetch(`${API}/repos/${REPO}/contents/${note.path}`, {
+          method: 'PUT',
+          headers: headers(),
+          body: JSON.stringify({ message: `pin: ${note.title}`, content, sha: note.sha }),
+        });
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        note.sha = data.content.sha;
+      } catch {}
+      saveCache();
+      renderNotes();
+    }
+
+    // ── Load note into form for editing ──────────────────────────────────────
+    function editNote(note) {
+      document.getElementById('note-title').value = note.title;
+      document.getElementById('note-body').value  = note.body;
+      activeTags = new Set(note.tags);
+      isPinned = note.pinned;
+      buildTagChips();
+      document.getElementById('pin-btn').textContent = isPinned ? '[★ pinned]' : '[pin]';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      document.getElementById('note-body').focus();
+      // Store ref for update
+      window._editingNote = note;
+      document.getElementById('save-btn').textContent = 'Update on GitHub';
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    function renderNotes() {
+      const list   = document.getElementById('notes-list');
+      const query  = document.getElementById('search-input').value.toLowerCase();
+      const tagF   = document.getElementById('tag-filter').value;
+      const sortBy = document.getElementById('sort-by').value;
+
+      let filtered = notes.filter(n => {
+        const matchQ = !query ||
+          n.title.toLowerCase().includes(query) ||
+          n.body.toLowerCase().includes(query) ||
+          n.tags.some(t => t.toLowerCase().includes(query));
+        const matchT = !tagF || n.tags.includes(tagF);
+        return matchQ && matchT;
+      });
+
+      if (sortBy === 'oldest') filtered.sort((a,b) => new Date(a.date) - new Date(b.date));
+      else if (sortBy === 'newest') filtered.sort((a,b) => new Date(b.date) - new Date(a.date));
+      else if (sortBy === 'pinned') filtered.sort((a,b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+      else if (sortBy === 'az') filtered.sort((a,b) => a.title.localeCompare(b.title));
+
+      document.getElementById('count-badge').textContent =
+        `${filtered.length} of ${notes.length} note${notes.length !== 1 ? 's' : ''}`;
+
+      if (!filtered.length) {
+        list.innerHTML = `<div class="empty-state">${notes.length ? 'No notes match your search.' : 'No notes yet — save your first capture above.'}</div>`;
+        return;
+      }
+
+      list.innerHTML = '';
+      filtered.forEach((note, i) => {
+        const card = document.createElement('div');
+        card.className = 'note-card' + (note.pinned ? ' pinned' : '');
+
+        const title = document.createElement('div');
+        title.className = 'note-title';
+        title.textContent = note.title;
+
+        const body = document.createElement('div');
+        body.className = 'note-body';
+        body.textContent = note.body;
+
+        const tags = document.createElement('div');
+        tags.className = 'note-tags';
+        note.tags.forEach(t => {
+          const s = document.createElement('span');
+          s.className = 'note-tag';
+          s.textContent = '#' + t;
+          s.style.cursor = 'pointer';
+          s.onclick = () => {
+            document.getElementById('tag-filter').value = t;
+            renderNotes();
+          };
+          tags.appendChild(s);
+        });
+
+        const meta = document.createElement('div');
+        meta.className = 'note-meta';
+        const d = new Date(note.date);
+        meta.textContent = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          + ' · ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+          + (note.path ? ` · ${note.path.split('/').pop()}` : '');
+
+        const actions = document.createElement('div');
+        actions.className = 'note-actions';
+
+        const expandBtn = document.createElement('button');
+        expandBtn.textContent = '[expand]';
+        expandBtn.onclick = () => {
+          body.classList.toggle('expanded');
+          expandBtn.textContent = body.classList.contains('expanded') ? '[collapse]' : '[expand]';
+        };
+
+        const editBtn = document.createElement('button');
+        editBtn.textContent = '[edit]';
+        editBtn.onclick = () => editNote(note);
+
+        const pinBtn = document.createElement('button');
+        pinBtn.textContent = note.pinned ? '[unpin]' : '[pin ★]';
+        pinBtn.onclick = () => pinNote(note);
+
+        const copyBtn = document.createElement('button');
+        copyBtn.textContent = '[copy]';
+        copyBtn.onclick = () => {
+          navigator.clipboard.writeText(note.body).then(() => { copyBtn.textContent = '[✓]'; setTimeout(() => copyBtn.textContent = '[copy]', 1500); });
+        };
+
+        const ghBtn = document.createElement('a');
+        ghBtn.href = `https://github.com/${REPO}/blob/main/${note.path}`;
+        ghBtn.target = '_blank';
+        ghBtn.style.cssText = 'font-size:0.75rem;color:var(--puny);padding:4px 10px;border:1px solid var(--puny);font-family:monospace;text-decoration:none;';
+        ghBtn.textContent = '[↗ github]';
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '[delete]';
+        delBtn.style.cssText = 'border-style:dashed;color:#ef4444;border-color:#ef4444;';
+        delBtn.onclick = () => deleteNote(note.path, note.sha, i);
+
+        actions.append(expandBtn, editBtn, pinBtn, copyBtn, ghBtn, delBtn);
+        card.append(title, body, tags, meta, actions);
+        list.appendChild(card);
+      });
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function clearForm() {
+      document.getElementById('note-title').value = '';
+      document.getElementById('note-body').value  = '';
+      activeTags = new Set();
+      isPinned = false;
+      window._editingNote = null;
+      document.getElementById('save-btn').textContent = 'Save to GitHub';
+      document.getElementById('pin-btn').textContent = '[pin]';
+      buildTagChips();
+    }
+
+    function togglePin() {
+      isPinned = !isPinned;
+      document.getElementById('pin-btn').textContent = isPinned ? '[★ pinned]' : '[pin]';
+    }
+
+    function saveCache() {
+      try { localStorage.setItem('qc-cache', JSON.stringify(notes)); } catch {}
+    }
+
+    function showStatus(msg, isErr = false) {
+      const s = document.getElementById('status-bar');
+      s.textContent = msg;
+      s.className = 'status-bar show' + (isErr ? ' err' : '');
+      setTimeout(() => s.classList.remove('show'), 4000);
+    }
+
+    function exportAll() {
+      if (!notes.length) { showStatus('No notes to export.', true); return; }
+      const blob = new Blob([JSON.stringify(notes, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `quick-capture-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+    }
+
+    // Keyboard shortcut: Ctrl/Cmd+Enter to save
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') saveNote();
+    });
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    buildTagChips();
+    buildTagFilter();
+    renderNotes();
+
+    if (cfg.token) {
+      setSyncState('synced');
+      loadAllNotes();
+    } else {
+      setSyncState('disconnected');
+      // Open settings automatically if no token
+      document.getElementById('settings-panel').classList.add('open');
+    }
+  </script>
+</body>
+</html>
