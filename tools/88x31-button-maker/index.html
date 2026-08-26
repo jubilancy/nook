@@ -1,0 +1,71 @@
+<!-- This project is archived and no longer being updated, but you're free to use it anyway! --> 
+
+<h2>88x31 Button Maker</h2>
+<div class="ui-wrapper">
+
+
+    <div class="form-panel">
+      <div class="option">
+        <label for="input"><strong>Enter your button text:</strong></label>
+        <textarea id="input" autocomplete="off"></textarea>
+      </div>
+
+      <div class="option">
+        <strong>Premade Styles:</strong>
+        <div class="flex small-gap">
+          <input type="checkbox" id="retroButton" />
+          <label for="retroButton">Retro Mode</label>
+        </div>
+      </div>
+
+      <div class="option">
+        <label for="upload"><strong>Upload Background Image:</strong></label>
+        <input type="file" id="upload" class="inputfile" />
+      </div>
+
+      <div class="option-group">
+        <div class="option">
+          <label for="bg-color"><strong>Background:</strong></label>
+          <input id="bg-color" type="color" value="#ffffff" />
+        </div>
+        <div class="option">
+          <label for="text-color"><strong>Text:</strong></label>
+          <input id="text-color" type="color" value="#000000" />
+        </div>
+        <div class="option">
+          <label for="border-color"><strong>Border:</strong></label>
+          <input id="border-color" type="color" value="#000000" />
+        </div>
+        <div class="option">
+          <label for="border-width"><strong>Border thickness:</strong></label>
+          <input id="border-width" type="number" min="0" max="8" value="1" />
+        </div>
+      </div>
+
+      <div class="option">
+        <strong>Text alignment:</strong>
+        <div class="flex small-gap">
+          <label
+            ><input type="radio" name="align" value="left" checked /> Left</label
+          >
+          <label
+            ><input type="radio" name="align" value="center" /> Center</label
+          >
+          <label><input type="radio" name="align" value="right" /> Right</label>
+        </div>
+      </div>
+
+      <div class="option">
+        <button id="into-image">Make into image</button>
+      </div>
+    </div>
+      <div class="preview-panel">
+      <h2>Button Preview</h2>
+      <div id="output">
+        <p id="text"></p>
+      </div>
+      <p class="hint">Click "Make into image" to generate and save!</p>
+    </div>
+  </div>
+
+  <div class="output-image" id="results"></div>
