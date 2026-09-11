@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>epub reader</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.5/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/epubjs/dist/epub.min.js"></script>
+<style>
+  :root {
+    color-scheme: light dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f7f5f2;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  #bar {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px;
+    background: #fff;
+    border-bottom: 1px solid #e5e2dd;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  #bar input[type="text"] {
+    flex: 1;
+    min-width: 200px;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+  #bar button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 6px;
+    background: #222;
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  #bar button:hover { background: #444; }
+  #bar button.nav { background: #888; padding: 8px 12px; }
+  #bar button.nav:hover { background: #666; }
+  #title {
+    font-size: 13px;
+    color: #777;
+    padding: 0 14px 8px;
+    background: #fff;
+  }
+  #viewer {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    background: #fff;
+  }
+  #status {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #999;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <input type="text" id="epubUrl" placeholder="Paste .epub URL here…" />
+  <button id="loadBtn">Load</button>
+  <button class="nav" id="prevBtn">‹ Prev</button>
+  <button class="nav" id="nextBtn">Next ›</button>
+</div>
+<div id="title"></div>
+<div id="viewer">
+  <div id="status">Paste an epub URL above to begin.</div>
+</div>
+
+<script>
+let book, rendition;
+
+const viewer = document.getElementById("viewer");
+const statusEl = document.getElementById("status");
+const titleEl = document.getElementById("title");
+const urlInput = document.getElementById("epubUrl");
+
+function setStatus(msg) {
+  statusEl.textContent = msg || "";
+  statusEl.style.display = msg ? "block" : "none";
+}
+
+// Load a URL from the ?book= query param, if present
+const params = new URLSearchParams(window.location.search);
+const initialUrl = params.get("book");
+if (initialUrl) {
+  urlInput.value = initialUrl;
+  loadBook(initialUrl);
+}
+
+document.getElementById("loadBtn").addEventListener("click", () => {
+  const url = urlInput.value.trim();
+  if (!url) return;
+  // reflect the loaded book in the URL bar for easy sharing/bookmarking
+  const newParams = new URLSearchParams(window.location.search);
+  newParams.set("book", url);
+  history.replaceState(null, "", "?" + newParams.toString());
+  loadBook(url);
+});
+
+urlInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("loadBtn").click();
+});
+
+document.getElementById("prevBtn").addEventListener("click", () => {
+  if (rendition) rendition.prev();
+});
+document.getElementById("nextBtn").addEventListener("click", () => {
+  if (rendition) rendition.next();
+});
+
+// keyboard navigation
+document.addEventListener("keydown", (e) => {
+  if (!rendition) return;
+  if (e.key === "ArrowLeft") rendition.prev();
+  if (e.key === "ArrowRight") rendition.next();
+});
+
+function loadBook(url) {
+  setStatus("Loading…");
+  titleEl.textContent = "";
+  viewer.querySelectorAll("iframe, div.epub-container").forEach(el => el.remove());
+
+  try {
+    book = ePub(url);
+
+    rendition = book.renderTo("viewer", {
+      width: "100%",
+      height: "100%",
+      flow: "paginated",
+      spread: "auto"
+    });
+
+    rendition.display();
+
+    rendition.on("relocated", () => setStatus(""));
+    rendition.on("rendered", () => setStatus(""));
+
+    book.loaded.metadata.then(meta => {
+      titleEl.textContent = [meta.title, meta.creator].filter(Boolean).join(" — ");
+    });
+
+    book.ready.catch(err => {
+      console.error(err);
+      setStatus("Couldn't load that epub. Check the URL and that the host allows cross-origin requests (CORS).");
+    });
+  } catch (err) {
+    console.error(err);
+    setStatus("Something went wrong loading that file.");
+  }
+}
+</script>
+
+</body>
+</html>
